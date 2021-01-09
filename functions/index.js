@@ -3,19 +3,25 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-exports.getLocations = functions.https.onRequest((request, response) => {
+const express = require('express');
+const app = express();
+
+app.get('/locations', (request, response) => {
     admin.firestore().collection('Locations').get()
         .then(data => {
             let locations = []
             data.forEach(document => {
-                locations.push(document.data())
+                locations.push({
+                    locationId: document.id,
+                    ...document.data()
+                })
             })
             return response.json(locations)
         })
         .catch(error => console.error(error))
 })
 
-exports.createLocation = functions.https.onRequest((request, response) => {
+app.post('/location', (request, response) => {
     const newLocation = {
         lat: request.body.lat,
         lng: request.body.lng,
@@ -35,3 +41,6 @@ exports.createLocation = functions.https.onRequest((request, response) => {
             console.error(error);
     })
 })
+
+//turns all of our functions into multiple routes
+exports.api = functions.https.onRequest(app);
