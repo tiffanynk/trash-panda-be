@@ -14,3 +14,24 @@ exports.getLocations = functions.https.onRequest((request, response) => {
         })
         .catch(error => console.error(error))
 })
+
+exports.createLocation = functions.https.onRequest((request, response) => {
+    const newLocation = {
+        lat: request.body.lat,
+        lng: request.body.lng,
+        name: request.body.name,
+        trash: request.body.trash,
+        recycling: request.body.recycling
+    }
+
+    admin.firestore().collection('Locations').add(newLocation)
+        .then(document => {
+            let createdLocation = newLocation;
+            createdLocation.locationId = document.id;
+            response.json(createdLocation)
+        })
+        .catch(error => {
+            response.status(500).json({ error: 'Something went wrong!' });
+            console.error(error);
+    })
+})
