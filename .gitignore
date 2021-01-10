@@ -63,4 +63,4 @@ node_modules/
 .yarn-integrity
 
 # firebase config
-firebaseConfig.js
+# firebaseConfig.js
