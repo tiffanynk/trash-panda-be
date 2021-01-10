@@ -47,6 +47,19 @@ app.post('/location', (request, response) => {
     })
 })
 
+const isEmail = email => {
+    const regEx = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if(email.match(regEx)){
+        return true
+    } else {
+        return false
+    }
+}
+
+const isBlank = string => {
+    return (!string || /^\s*$/.test(string));
+}
+
 app.post('/signup', (request, response) => {
     const newUser = {
         email: request.body.email,
@@ -54,6 +67,28 @@ app.post('/signup', (request, response) => {
         username: request.body.username
     };
 
+    let errors = {};
+
+    if(isBlank(newUser.email)){
+        errors.email = 'Please enter an email address.'
+    } else if(!isEmail(newUser.email)) {
+        errors.email = 'Must be a valid email address.'
+    }
+    
+    if(isBlank(newUser.password)){
+        errors.password = 'Please enter a password'
+    }
+
+    if(isBlank(newUser.username)){
+        errors.username = 'Please enter a username'
+    }
+
+    if(Object.keys(errors).length > 0){
+        return response.status(400).json(errors)
+    }
+
+    let token;
+    let userId;
     database.doc(`users/${newUser.username}`).get()
         .then(document => {
             if(document.exists){
@@ -65,20 +100,69 @@ app.post('/signup', (request, response) => {
             }
         })
         .then(data => {
+            userId = data.user.uid
             return data.user.getIdToken()
         })
-        .then(token => {
+        .then(userToken => {
+            token = userToken
+            const userCredentials = {
+                username: newUser.username,
+                email: newUser.email,
+                userId
+            }
+            database.doc(`/users/${newUser.username}`)
+                .set(userCredentials)
+        })
+        .then(() => {
             return response.status(201).json({ token })
         })
         .catch(error => {
             console.error(error);
-            if(error.code !== null){
-                return response.status(400).json({ user: 'This username or email is already in use.' });
+            if(error.code === 'auth/email-already-in-use'){
+                return response.status(400).json({ user: 'This email is already in use.' });
             } else {
                 return response.status(500).json({ error: error.code });
             }
         });    
 })
 
+
+app.post('/login', (request, response) => {
+    const user = {
+        email: request.body.email,
+        password: request.body.password
+    }
+
+    let errors = {};
+
+    if(isBlank(user.email)){
+        errors.email = 'Please enter your email address.'
+    }
+
+    if(isBlank(user.password)){
+        errors.password = 'Please enter your password.'
+    }
+
+    if(Object.keys(errors).length > 0){
+        return response.status(400).json(errors)
+    }
+
+    firebase.auth()
+        .signInWithEmailAndPassword(user.email, user.password)
+        .then(data => {
+            return data.user.getIdToken()
+        })
+        .then(token => {
+            response.json({ token})
+        })
+        .catch(error => {
+            console.error(error)
+            if(error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found'){
+                return response.status(403).json({ status: 'Wrong credentials. Please try again.'})
+            } else {
+                return response.status(500).json({ error: error.code })
+            }
+        })
+})
 //turns all of our functions into multiple routes
 exports.api = functions.https.onRequest(app);
