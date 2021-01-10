@@ -114,9 +114,6 @@ app.post('/signup', (request, response) => {
                 .set(userCredentials)
             return response.status(201).json({user: {email: userCredentials.email}, token})
         })
-        // .then(() => {
-        //     return response.status(201).json({newUser: {email: user.email}, token })
-        // })
         .catch(error => {
             console.error(error);
             if(error.code === 'auth/email-already-in-use'){
